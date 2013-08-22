@@ -1,0 +1,109 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+use File::Basename;
+use List::MoreUtils qw(firstidx);
+
+my $VM_STAT = "/usr/bin/vm_stat";
+
+my $vm_stat = 0;
+my $human = 0;    # TODO: -h
+my $scale;
+my $unit = 1024;  # TODO: --si
+my $page_size;
+my %mem = ( );
+
+if (basename($0) eq "vm_stat") {
+    $vm_stat = 1;
+}
+
+if (@ARGV > 0) {
+    # TODO: use Getopt::Long
+    # TODO: add --help, --version
+    # TODO: add --old, --total, --lohi, --seconds, --count
+    # TODO: add --bytes, --kilo, --mega, --giga
+    my @params = qw(-b -k -m -g --tera);
+    my $idx = firstidx { $_ eq $ARGV[0] } @params;
+    if ($idx == -1) { $idx = 1 };
+    $scale = $unit ** $idx;
+}
+
+if ($vm_stat && !defined $scale) {
+    exec $VM_STAT or die;
+}
+
+unless ($scale) {
+    $scale = $unit;
+}
+
+open(PIPE, "-|", $VM_STAT);
+my %vm = ( );
+
+while(<PIPE>) {
+    /page size of (\d+)/ and $page_size = $1;
+
+    if ($vm_stat) {
+        /Pages\s+([^:]+)[^\d]+(\d+)/ and printf("%-16s % 16d\n", "$1:", $2 * $page_size / $scale);
+    } else {
+        my @keys = ( "free", "active", "inactive", "speculative", "wired down" );
+        foreach my $key (@keys) {
+            /Pages $key[^\d]+(\d+)/ and $vm{$key} = $1 * $page_size;
+        }
+
+    }
+}
+
+close(PIPE);
+
+unless ($vm_stat) {
+    `sysctl hw.memsize` =~ /(\d+)/ and $mem{total} = $1;
+    $mem{free}             = $vm{free} + $vm{speculative};
+    $mem{used}             = $vm{'wired down'} + $vm{active} + $vm{inactive};
+    $mem{shared}           = 0;
+    $mem{buffers}          = 0;
+    $mem{cached}           = $vm{inactive};
+    $mem{no_cache_used}    = $vm{'wired down'} + $vm{active};
+    $mem{no_cache_free}    = $mem{total} - $mem{no_cache_used};
+
+    # alternative for total
+    #while (my $swapfile = </private/var/vm/swapfile*>) {
+    #    $mem{swap_total}      += (stat($swapfile))[7];
+    #}
+
+    foreach my $key ( qw(total used free) ) {
+        if (`sysctl vm.swapusage` =~ /$key = ([0-9.]+)/) {
+            $mem{"swap_$key"} = $1 * 1048576;
+        }
+    }
+
+    foreach my $key ( keys %mem ) {
+        $mem{$key} /= $scale;
+    }
+
+    my @keys = qw(total used free shared buffers cached);
+    printf("%7s", "");
+    foreach my $key (@keys) {
+        printf("%11s", $key);
+    }
+    print("\n");
+
+    printf("%7s", "Mem:");
+    foreach my $key (@keys) {
+        printf("%11d", $mem{$key});
+    }
+    print("\n");
+
+    print("+/- buffers/cache:");
+    printf("%11d", $mem{no_cache_used});
+    printf("%11d", $mem{no_cache_free});
+    print("\n");
+
+    printf("%7s", "Swap:");
+    printf("%11d", $mem{swap_total});
+    printf("%11d", $mem{swap_used});
+    printf("%11d", $mem{swap_free});
+    print("\n");
+
+}
