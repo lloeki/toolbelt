@@ -1,0 +1,14 @@
+#!/bin/sh
+
+set -e
+set -o nounset
+
+certs=/usr/local/share/ca-bundle.crt
+tmp_certs=`mktemp -t update-local-certificates`
+
+security find-certificate -a -p /Library/Keychains/System.keychain > $tmp_certs
+security find-certificate -a -p /System/Library/Keychains/SystemRootCertificates.keychain >> $tmp_certs
+security find-certificate -a -p >> $tmp_certs
+
+chmod a+r $tmp_certs
+mv $tmp_certs $certs
