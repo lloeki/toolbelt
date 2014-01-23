@@ -1,0 +1,22 @@
+#!/bin/sh
+
+# $0 [OPTION] DURATION COMMAND [ARG]...
+# DURATION with suffix: s, m, h, d
+# -k --kill--after
+# -s --signal
+# exit: 124
+
+set -e
+set -o nounset
+
+wrapper_pid=$$
+seconds="$1"
+shift
+signal='TERM'
+
+(sleep $seconds; kill $wrapper_pid) &
+watchdog_pid=$!
+
+trap "kill -$signal $watchdog_pid" EXIT
+
+$@
