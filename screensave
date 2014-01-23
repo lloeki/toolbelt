@@ -1,2 +1,8 @@
 #!/bin/sh
+
+seconds=$1
+shift
+
+[[ -n $seconds ]] && sleep $seconds
+
 open -a /System/Library/Frameworks/ScreenSaver.framework/Versions/A/Resources/ScreenSaverEngine.app
