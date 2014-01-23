@@ -10,7 +10,7 @@ security find-certificate -a -p /Library/Keychains/System.keychain > $tmp_certs
 security find-certificate -a -p /System/Library/Keychains/SystemRootCertificates.keychain >> $tmp_certs
 security find-certificate -a -p >> $tmp_certs
 
-if [[ `md5 $tmp_certs | cut -d'=' -f2` != `md5 $certs | cut -d'=' -f2` ]]; then
+if [[ `/sbin/md5 $tmp_certs | cut -d'=' -f2` != `/sbin/md5 $certs | cut -d'=' -f2` ]]; then
     chmod a+r $tmp_certs
     mv $tmp_certs $certs
 fi
