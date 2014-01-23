@@ -1,0 +1,79 @@
+#!/usr/bin/python
+
+# wakeonlan [-h] [-v] [-i IP_address] [-p port] [-f file]
+#           [[hardware_address] ...]
+
+
+from __future__ import division, print_function, unicode_literals
+
+from socket import socket, AF_INET, SOCK_DGRAM, SOL_SOCKET, SO_BROADCAST
+import argparse
+
+
+VERSION = '0.6.0'
+
+
+def interact():
+    import code
+    code.InteractiveConsole(locals=globals()).interact()
+
+
+def mac_to_bytes(mac):
+    try:  # py2
+        return b''.join(chr(int(b, 16)) for b in mac.split(':'))
+    except TypeError:  # py3
+        return bytes([int(b, 16) for b in mac.split(':')])
+
+
+def bytes_to_mac(bytes):
+    try:  # py3
+        return ':'.join("%02X" % b for b in bytes).lower()
+    except TypeError:  # py2
+        return ':'.join("%02X" % ord(b) for b in bytes).lower()
+
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-v', '--version',
+                        action='version',
+                        version='%(prog)s ' + VERSION)
+    parser.add_argument('-i', '--ip_address',
+                        dest='ip_address',
+                        default="255.255.255.255",
+                        help="set the destination IP address")
+    parser.add_argument('-p', '--port',
+                        dest='port',
+                        type=int,
+                        default=9,
+                        help="set the destination port")
+    parser.add_argument('-f', '--file',
+                        dest='file',
+                        help="uses file as a source of hardware addresses")
+    parser.add_argument('hardware_addresses',
+                        metavar='hardware_address',
+                        help='MAC address to wake up',
+                        nargs='+')
+
+    return parser.parse_args()
+
+
+def send_magic_packet(sock, ip_address, port, hardware_address):
+    data = b'\xFF' * 6 + mac_to_bytes(hardware_address) * 16
+
+    print("Sending magic packet to %s:%s with %s" %
+         (ip_address, port, bytes_to_mac(mac_to_bytes(hardware_address))))
+
+    sock.sendto(data, (ip_address, port))
+
+
+def wake_all(hardware_addresses, ip_address='255.255.255.255', port=9):
+    sock = socket(AF_INET, SOCK_DGRAM)
+    sock.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
+    for hardware_address in hardware_addresses:
+        send_magic_packet(sock, ip_address, port, hardware_address)
+    sock.close()
+
+
+if __name__ == '__main__':
+    args = parse_args()
+    wake_all(args.hardware_addresses, args.ip_address, args.port)
