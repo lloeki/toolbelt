@@ -1,0 +1,93 @@
+#!/usr/bin/ruby
+
+require "fileutils"
+
+drive_resources = "/Applications/Google Drive.app/Contents/Resources"
+
+Dir.chdir drive_resources
+
+def remap(filename, suffix = nil)
+  suffix = suffix.nil? ? "" : "-#{suffix}"
+
+  filename.sub(/-(?:inverse|dark|light)/, suffix)
+end
+
+def inverse
+  @inverse ||= Dir["mac-*-inverse{,@2x}.png"]
+end
+
+def active
+  @active ||= inverse.map { |f| remap(f) }
+end
+
+def light
+  @light ||= inverse.map { |f| remap(f, "light") }
+end
+
+def dark
+  @dark ||= inverse.map { |f| remap(f, "dark") }
+end
+
+def generate_persistent_assets
+  light.each do |persistent|
+    next if File.exist? persistent
+
+    source = remap(persistent)
+    FileUtils.cp(source, persistent)
+  end
+
+  dark.each do |persistent|
+    next if File.exist? persistent
+
+    source = remap(persistent, "inverse")
+    FileUtils.cp(source, persistent)
+  end
+end
+
+def copy_assets(mode)
+  mapping = case mode
+            when "light"
+              { dark: "inverse", light: nil }
+            when "dark"
+              { light: "inverse", dark: nil }
+            else fail NotImplementedError
+            end
+
+  light.each do |persistent|
+    dest = remap(persistent, mapping[:light])
+    FileUtils.cp(persistent, dest)
+  end
+
+  dark.each do |persistent|
+    dest = remap(persistent, mapping[:dark])
+    FileUtils.cp(persistent, dest)
+  end
+end
+
+def remove_persistent_assets
+  copy_assets "light"
+  (light + dark).each { |f| FileUtils.rm_f(f) }
+end
+
+def restart
+  %x(killall "Google Drive")
+  sleep 30
+  %x(open -a "Google Drive")
+end
+
+case ARGV[0]
+when "dark"
+  generate_persistent_assets
+  copy_assets "dark"
+  restart
+when "light"
+  generate_persistent_assets
+  copy_assets "light"
+  restart
+when "clean"
+  remove_persistent_assets
+  restart
+else
+  $stderr.puts("light or dark?")
+  exit 1
+end
