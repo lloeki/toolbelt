@@ -70,8 +70,14 @@ def remove_persistent_assets
 end
 
 def restart
+  print "waiting for Google Drive to close..."
   %x(killall "Google Drive")
-  sleep 30
+  while system("ps -u $(whoami) | grep -v grep | grep 'Google Drive.app' > /dev/null") do
+    sleep 1
+    print "."
+  end
+  puts
+  puts "restarting Google Drive..."
   %x(open -a "Google Drive")
 end
 
