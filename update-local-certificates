@@ -3,14 +3,16 @@
 set -e
 set -o nounset
 
-certs=/usr/local/share/ca-bundle.crt
-tmp_certs=`mktemp -t update-local-certificates`
+certs=/usr/local/etc/openssl/cert.pem
+tmp_certs=$(mktemp -t update-local-certificates)
 
-security find-certificate -a -p /Library/Keychains/System.keychain > $tmp_certs
-security find-certificate -a -p /System/Library/Keychains/SystemRootCertificates.keychain >> $tmp_certs
-security find-certificate -a -p >> $tmp_certs
+security find-certificate -a -p \
+    /Library/Keychains/System.keychain \
+    /System/Library/Keychains/SystemRootCertificates.keychain \
+    /System/Library/Keychains/SystemCACertificates.keychain \
+    > "$tmp_certs"
 
-if [[ `/sbin/md5 $tmp_certs | cut -d'=' -f2` != `/sbin/md5 $certs | cut -d'=' -f2` ]]; then
-    chmod a+r $tmp_certs
-    mv $tmp_certs $certs
+if [ ! -f "$certs" ] || [ $(/sbin/md5 "$tmp_certs" | cut -d'=' -f2) != $(/sbin/md5 "$certs" | cut -d'=' -f2) ]; then
+    chmod a+r "$tmp_certs"
+    mv "$tmp_certs" "$certs"
 fi
