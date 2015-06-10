@@ -1,0 +1,13 @@
+#!/bin/sh
+
+[ -z "$1" ] && n=4 || n="$1"
+
+shuffle() {
+    if which shuf >/dev/null 2>&1; then
+        shuf "$@"
+    else
+        perl -MList::Util=shuffle -e 'print shuffle <>' "$@"
+    fi
+}
+
+shuffle /usr/share/dict/words | head -"$n" | xargs echo -n
