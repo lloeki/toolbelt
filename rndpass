@@ -1,0 +1,2 @@
+#!/bin/bash
+xxd -l $(($1/2)) -p /dev/random | tr '\n' ':' | sed 's/://g' | xargs echo -n
